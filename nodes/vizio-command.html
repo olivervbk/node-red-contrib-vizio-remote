@@ -1,0 +1,70 @@
+<script type="text/javascript">
+  RED.nodes.registerType('vizio-command', {
+    category: 'Vizio',
+    color: '#9fc5e8',
+    defaults: {
+      name: { value: '' },
+      tv: { type: 'vizio-tv', required: true },
+      action: { value: 'power_toggle' },
+      amount: { value: 1 },
+      volume: { value: 20 },
+      input: { value: '' },
+      codeset: { value: '' },
+      code: { value: '' }
+    },
+    inputs: 1, outputs: 1, icon: 'font-awesome/fa-television',
+    label: function () { return this.name || ('Vizio: ' + (this.action || '').replace(/_/g, ' ')); },
+    oneditprepare: function () {
+      var node = this;
+      var sync = function () {
+        var a = $('#node-input-action').val();
+        $('.vz-amount').toggle(a === 'volume_up' || a === 'volume_down');
+        $('.vz-volume').toggle(a === 'volume_set');
+        $('.vz-input').toggle(a === 'input_set');
+        $('.vz-raw').toggle(a === 'key');
+      };
+      $('#node-input-action').on('change', sync); sync();
+      $('#node-input-tv').on('change', function () {
+        var id = $(this).val();
+        if (!id || id === '_ADD_') return;
+        $.getJSON('vizio-remote/inputs/' + id, function (inputs) {
+          var $dl = $('#vz-inputs').empty();
+          inputs.forEach(function (i) { $dl.append($('<option>').val(i.name).text(i.label)); });
+        });
+      }).trigger('change');
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="vizio-command">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-tv"><i class="fa fa-television"></i> TV</label><input type="text" id="node-input-tv"></div>
+  <div class="form-row"><label for="node-input-action"><i class="fa fa-bolt"></i> Action</label>
+    <select id="node-input-action" style="width:70%">
+      <optgroup label="Power"><option value="power_on">Power on</option><option value="power_off">Power off</option><option value="power_toggle">Power toggle</option></optgroup>
+      <optgroup label="Volume"><option value="volume_up">Volume up (×N)</option><option value="volume_down">Volume down (×N)</option><option value="volume_set">Set volume (0–100)</option>
+        <option value="mute_on">Mute on</option><option value="mute_off">Mute off</option><option value="mute_toggle">Mute toggle</option></optgroup>
+      <optgroup label="Playback"><option value="play">Play</option><option value="pause">Pause</option><option value="seek_forward">Seek forward</option><option value="seek_back">Seek back</option></optgroup>
+      <optgroup label="Input"><option value="input_set">Set input (HDMI-n / SmartCast / name)</option><option value="smartcast">SmartCast home</option><option value="input_next">Next input</option></optgroup>
+      <optgroup label="Channel"><option value="channel_up">Channel up</option><option value="channel_down">Channel down</option><option value="channel_prev">Previous channel</option></optgroup>
+      <optgroup label="Navigation"><option value="up">Up</option><option value="down">Down</option><option value="left">Left</option><option value="right">Right</option><option value="ok">OK</option><option value="back">Back</option><option value="exit">Exit</option><option value="menu">Menu</option><option value="home">Home</option><option value="info">Info</option></optgroup>
+      <optgroup label="Other"><option value="closed_captions">Closed captions</option><option value="picture_mode">Picture mode</option><option value="picture_size">Picture size</option><option value="key">Raw key (codeset/code)</option></optgroup>
+    </select></div>
+  <div class="form-row vz-amount"><label for="node-input-amount"><i class="fa fa-sort-numeric-asc"></i> Amount</label><input type="number" id="node-input-amount" min="1" max="100" style="width:80px"> <span style="color:#888">key presses</span></div>
+  <div class="form-row vz-volume"><label for="node-input-volume"><i class="fa fa-volume-up"></i> Volume</label><input type="number" id="node-input-volume" min="0" max="100" style="width:80px"></div>
+  <div class="form-row vz-input"><label for="node-input-input"><i class="fa fa-plug"></i> Input</label><input type="text" id="node-input-input" list="vz-inputs" placeholder="HDMI-1, SmartCast, …"><datalist id="vz-inputs"></datalist></div>
+  <div class="form-row vz-raw"><label for="node-input-codeset">Codeset</label><input type="number" id="node-input-codeset" style="width:80px"> <label for="node-input-code" style="width:auto">Code</label> <input type="number" id="node-input-code" style="width:80px"></div>
+</script>
+
+<script type="text/html" data-help-name="vizio-command">
+  <p>Sends a command to a Vizio SmartCast TV.</p>
+  <h3>Input</h3>
+  <p><code>msg.payload</code> overrides the configured action. Either a string (<code>"volume_up"</code>) or an object:</p>
+  <pre>{ "action": "volume_up", "amount": 5 }
+{ "action": "volume_set", "volume": 25 }
+{ "action": "input_set", "input": "HDMI-2" }   // or "SmartCast", or your label
+{ "action": "key", "codeset": 5, "code": 1 }</pre>
+  <h3>Output</h3>
+  <p><code>msg.payload</code> = <code>{ ok: true, action, … }</code>. Errors go to Catch nodes.</p>
+  <p>Volume up/down ×N sends N key presses ~100 ms apart. Power on only works if the TV keeps its network up while off (enable Quick Start). There is no "stop" key in the SmartCast API.</p>
+</script>

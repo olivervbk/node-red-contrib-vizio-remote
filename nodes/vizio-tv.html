@@ -1,0 +1,112 @@
+<script type="text/javascript">
+  RED.nodes.registerType('vizio-tv', {
+    category: 'config',
+    defaults: {
+      name: { value: '' },
+      host: { value: '', required: true },
+      port: { value: 7345, validate: RED.validators.number() },
+      deviceId: { value: '' },
+      deviceName: { value: 'Node-RED' },
+      tvId: { value: '' }
+    },
+    credentials: { authToken: { type: 'password' } },
+    label: function () { return this.name || this.host || 'Vizio TV'; },
+    oneditprepare: function () {
+      var api = 'vizio-remote/';
+      var pairing = null; // { pairingReqToken, challengeType }
+      var $msg = $('#vizio-pair-msg');
+      var say = function (text, isErr) { $msg.text(text).css('color', isErr ? 'var(--red-ui-text-color-error, #c00)' : ''); };
+      var body = function () {
+        return { host: $('#node-config-input-host').val().trim(), port: $('#node-config-input-port').val(), deviceId: $('#node-config-input-deviceId').val(), deviceName: $('#node-config-input-deviceName').val() };
+      };
+      var post = function (path, data) {
+        return $.ajax({ url: api + path, method: 'POST', contentType: 'application/json', data: JSON.stringify(data) });
+      };
+      var errText = function (x) { return (x.responseJSON && x.responseJSON.error) || x.statusText || 'request failed'; };
+
+      if (!$('#node-config-input-deviceId').val()) {
+        $.getJSON(api + 'new-device-id', function (r) { $('#node-config-input-deviceId').val(r.deviceId); });
+      }
+
+      $('#vizio-discover').on('click', function () {
+        var $btn = $(this).prop('disabled', true);
+        var $sel = $('#vizio-found').empty().hide();
+        say('Searching the network (a few seconds)…');
+        $.getJSON(api + 'discover').done(function (tvs) {
+          if (!tvs.length) { say('No TVs found. Enter the IP address manually (mDNS may be blocked, e.g. in Docker).', true); return; }
+          tvs.forEach(function (tv, i) { $sel.append($('<option>').val(i).text(tv.name + ' – ' + tv.host + (tv.model ? ' (' + tv.model + ')' : ''))); });
+          var pick = function () {
+            var tv = tvs[$sel.val()];
+            $('#node-config-input-host').val(tv.host); $('#node-config-input-port').val(tv.port);
+            $('#node-config-input-tvId').val(tv.tvId || '');
+            if (!$('#node-config-input-name').val()) $('#node-config-input-name').val(tv.name);
+          };
+          $sel.off('change').on('change', pick).show(); pick();
+          say('Found ' + tvs.length + ' TV(s).');
+        }).fail(function (x) { say('Discovery failed: ' + errText(x), true); }).always(function () { $btn.prop('disabled', false); });
+      });
+
+      $('#vizio-pair-start').on('click', function () {
+        var b = body();
+        if (!b.host) { say('Enter or discover the TV address first.', true); return; }
+        say('Asking the TV to show a PIN…');
+        post('pair/start', b).done(function (r) {
+          pairing = r; $('#vizio-pin-row').show(); $('#vizio-pin').val('').focus();
+          say('Enter the PIN now shown on your TV screen.');
+        }).fail(function (x) { say('Could not start pairing: ' + errText(x), true); });
+      });
+
+      $('#vizio-pair-finish').on('click', function () {
+        if (!pairing) return;
+        var b = $.extend(body(), pairing, { pin: $('#vizio-pin').val().trim() });
+        post('pair/finish', b).done(function (r) {
+          $('#node-config-input-authToken').val(r.authToken);
+          pairing = null; $('#vizio-pin-row').hide();
+          say('Paired! Click Done, then Deploy.');
+        }).fail(function (x) { say('Pairing failed: ' + errText(x), true); });
+      });
+
+      $('#vizio-pair-cancel').on('click', function () {
+        if (pairing) post('pair/cancel', $.extend(body(), { challengeType: pairing.challengeType }));
+        pairing = null; $('#vizio-pin-row').hide(); say('Pairing cancelled.');
+      });
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="vizio-tv">
+  <div class="form-row"><label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-config-input-name" placeholder="Living room TV"></div>
+  <div class="form-row">
+    <label>&nbsp;</label>
+    <button type="button" class="red-ui-button" id="vizio-discover"><i class="fa fa-search"></i> Discover TVs</button>
+    <select id="vizio-found" style="display:none; width:60%; margin-left:6px"></select>
+  </div>
+  <div class="form-row"><label for="node-config-input-host"><i class="fa fa-globe"></i> Host / IP</label><input type="text" id="node-config-input-host" placeholder="192.168.1.100"></div>
+  <div class="form-row"><label for="node-config-input-port"><i class="fa fa-plug"></i> Port</label><input type="text" id="node-config-input-port" style="width:80px"> <span style="color:#888">7345 (older firmware: 9000)</span></div>
+  <div class="form-row"><label for="node-config-input-deviceName"><i class="fa fa-desktop"></i> Device name</label><input type="text" id="node-config-input-deviceName"></div>
+  <input type="hidden" id="node-config-input-deviceId"><input type="hidden" id="node-config-input-tvId">
+  <hr>
+  <div class="form-row">
+    <label>&nbsp;</label>
+    <button type="button" class="red-ui-button" id="vizio-pair-start"><i class="fa fa-link"></i> Pair with TV</button>
+  </div>
+  <div class="form-row" id="vizio-pin-row" style="display:none">
+    <label for="vizio-pin"><i class="fa fa-key"></i> PIN</label>
+    <input type="text" id="vizio-pin" style="width:100px" autocomplete="off">
+    <button type="button" class="red-ui-button" id="vizio-pair-finish">Submit</button>
+    <button type="button" class="red-ui-button" id="vizio-pair-cancel">Cancel</button>
+  </div>
+  <div class="form-row"><label>&nbsp;</label><span id="vizio-pair-msg"></span></div>
+  <div class="form-row"><label for="node-config-input-authToken"><i class="fa fa-lock"></i> Auth token</label><input type="password" id="node-config-input-authToken" placeholder="filled in by pairing"></div>
+</script>
+
+<script type="text/html" data-help-name="vizio-tv">
+  <p>Connection settings for one Vizio SmartCast TV.</p>
+  <ol>
+    <li>Click <b>Discover TVs</b> (or type the IP).</li>
+    <li>Click <b>Pair with TV</b>; a PIN appears on the TV.</li>
+    <li>Type the PIN and <b>Submit</b>. The auth token is stored as an encrypted Node-RED credential.</li>
+  </ol>
+  <p>If the TV later changes IP address, the node searches for it again via mDNS (if it was discovered) and retries.</p>
+  <p>Not affiliated with VIZIO.</p>
+</script>
