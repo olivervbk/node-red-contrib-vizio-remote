@@ -2,7 +2,7 @@
   {"id":"i1","type":"inject","z":"f1","name":"Volume +5","props":[{"p":"payload"}],"payload":"{\"action\":\"volume_up\",\"amount\":5}","payloadType":"json","x":130,"y":60,"wires":[["c1"]]},
   {"id":"i2","type":"inject","z":"f1","name":"HDMI-1","props":[{"p":"payload"}],"payload":"{\"action\":\"input_set\",\"input\":\"HDMI-1\"}","payloadType":"json","x":120,"y":120,"wires":[["c1"]]},
   {"id":"i3","type":"inject","z":"f1","name":"Status","props":[{"p":"payload"}],"payload":"","payloadType":"date","x":120,"y":180,"wires":[["s1"]]},
-  {"id":"c1","type":"vizio-command","z":"f1","name":"","tv":"tv1","action":"power_toggle","amount":1,"volume":20,"input":"","codeset":"","code":"","x":340,"y":90,"wires":[["d1"]]},
+  {"id":"c1","type":"vizio-command","z":"f1","name":"","tv":"tv1","action":"msg","amount":1,"volume":20,"input":"","codeset":"","code":"","x":340,"y":90,"wires":[["d1"]]},
   {"id":"s1","type":"vizio-status","z":"f1","name":"","tv":"tv1","x":340,"y":180,"wires":[["d1"]]},
   {"id":"d1","type":"debug","z":"f1","name":"result","active":true,"tosidebar":true,"complete":"payload","x":540,"y":130,"wires":[]},
   {"id":"tv1","type":"vizio-tv","name":"Living room TV","host":"192.168.1.100","port":7345,"deviceId":"","deviceName":"Node-RED","tvId":""},

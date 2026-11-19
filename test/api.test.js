@@ -46,10 +46,29 @@ describe('VizioClient + commands (against stub TV)', function () {
     assert.deepStrictEqual(tv.state.keys, [[5, 1], [5, 1], [5, 1]]);
   });
 
-  it('string payload overrides config; object payload overrides amount', async () => {
-    assert.strictEqual(resolveCommand({ action: 'play' }, 'Mute Toggle').action, 'mute_toggle');
+  it('string payload sets the action only in from-msg mode; object keys always override', async () => {
+    assert.strictEqual(resolveCommand({ action: 'msg' }, 'Mute Toggle').action, 'mute_toggle');
+    assert.strictEqual(resolveCommand({ action: 'msg' }, 'PowerOn').action, 'power_on');
+    assert.strictEqual(resolveCommand({ action: 'play' }, 'Mute Toggle').action, 'play');
+    assert.throws(() => resolveCommand({ action: 'msg' }, undefined), /No action/);
     const c = resolveCommand({ action: 'volume_down', amount: 1 }, { amount: 4 });
     assert.deepStrictEqual([c.action, c.amount], ['volume_down', 4]);
+  });
+
+  it('volume_set payload shapes all resolve to the intended volume', () => {
+    const v = (cfg, payload) => resolveCommand(cfg, payload).volume;
+    assert.strictEqual(v({ action: 'msg', volume: 20 }, { action: 'volume_set', volume: 25 }), 25);
+    assert.strictEqual(v({ action: 'msg', volume: 20 }, { action: 'volume_set', amount: 25 }), 25);
+    assert.strictEqual(v({ action: 'msg', volume: 20 }, { action: 'set_volume', volume: '25' }), '25');
+    assert.strictEqual(v({ action: 'msg' }, '{"action":"volume_set","volume":25}'), 25);
+    assert.strictEqual(v({ action: 'volume_set', volume: 20 }, '25'), 25);
+    assert.strictEqual(v({ action: 'volume_set', volume: 20 }, 25), 25);
+    assert.strictEqual(resolveCommand({ action: 'msg' }, 'SetVolume').action, 'volume_set');
+  });
+
+  it('volume_set without any volume is an error, not a silent default', async () => {
+    await assert.rejects(execute(client, resolveCommand({ action: 'volume_set' }, 'go')), /needs a volume/);
+    await assert.rejects(execute(client, resolveCommand({ action: 'msg' }, 'volume_set')), /needs a volume/);
   });
 
   it('power / mute / playback keys map to the right codes', async () => {

@@ -12,7 +12,15 @@ module.exports = function (RED) {
       send = send || node.send.bind(node);
       done = done || ((e) => e && node.error(e, msg));
       try {
-        const cmd = resolveCommand({ action: config.action, amount: config.amount, input: config.input, volume: config.volume, codeset: config.codeset, code: config.code }, msg.payload);
+        const param = (name, dflt) => {
+          const raw = config[name];
+          if (raw === undefined || raw === '') return undefined;
+          return RED.util.evaluateNodeProperty(raw, config[name + 'Type'] || dflt, node, msg);
+        };
+        const cmd = resolveCommand({
+          action: config.action, amount: param('amount', 'num'), volume: param('volume', 'num'), input: param('input', 'str'),
+          codeset: config.codeset, code: config.code
+        }, msg.payload);
         const result = await tv.run((c) => execute(c, cmd));
         node.status({ fill: 'green', shape: 'dot', text: cmd.action });
         msg.payload = { ok: true, ...result };

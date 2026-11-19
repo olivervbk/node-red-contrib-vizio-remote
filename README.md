@@ -34,15 +34,21 @@ the nodes search for it again and retry once, logging a warning.
 
 ## vizio-command
 
-Pick an action in the editor, or override it per message with `msg.payload`:
+Choose a fixed action in the editor, or **(from msg.payload)** to pick the action per message:
 
 ```js
-"volume_up"                                    // string = action
+"PowerOn"                                      // string = action (case/space/dash/underscore insensitive)
+"volume_up"
 { "action": "volume_up", "amount": 5 }         // five presses
 { "action": "volume_set", "volume": 25 }       // absolute, 0–100
 { "action": "input_set", "input": "HDMI-2" }   // also "SmartCast", or your own label e.g. "Game Console"
 { "action": "key", "codeset": 5, "code": 1 }   // raw key
 ```
+
+- **Parameters** (amount, volume, input) can be fixed values or read from `msg.*`, `flow.*`, `global.*` or an env var.
+- **Keys in an object `msg.payload` always override** the configured parameters.
+- A **bare number** as payload sets the amount (volume up/down) or the volume (set volume).
+- A **fixed action ignores string payloads**, so a stray `"ON"` from MQTT can't break it.
 
 Actions: `power_on` `power_off` `power_toggle` · `volume_up` `volume_down` `volume_set` `mute_on` `mute_off` `mute_toggle` ·
 `play` `pause` `seek_forward` `seek_back` · `input_set` `input_next` `smartcast` · `channel_up` `channel_down` `channel_prev` ·

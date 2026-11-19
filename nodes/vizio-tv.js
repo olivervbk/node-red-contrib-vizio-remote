@@ -68,12 +68,6 @@ module.exports = function (RED) {
     return { ok: true };
   }));
 
-  RED.httpAdmin.get('/vizio-remote/inputs/:id', RED.auth.needsPermission('vizio-tv.read'), wrap(async (req) => {
-    const tv = RED.nodes.getNode(req.params.id);
-    if (!tv || !tv.run) { const e = new Error('Deploy the TV config node first'); e.userError = 404; throw e; }
-    return tv.run((c) => c.getInputs());
-  }));
-
   RED.httpAdmin.get('/vizio-remote/new-device-id', RED.auth.needsPermission('vizio-tv.read'), (req, res) =>
     res.json({ deviceId: 'node-red-' + crypto.randomBytes(4).toString('hex') }));
 };
