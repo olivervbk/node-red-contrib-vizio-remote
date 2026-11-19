@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-vizio-remote",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Node-RED nodes to pair with and control Vizio SmartCast TVs over the local network (power, volume, mute, inputs, playback, status).",
   "keywords": [
     "node-red",
